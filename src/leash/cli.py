@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, gitcheck, hook
-from .audit import audit_history, audit_source, audit_staged, exit_code
+from . import __version__, gitcheck, hook, usage
+from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
 from .report import as_json, text
 from .rules import grade, parse
 from .secrets import find_secrets, redact
@@ -57,6 +57,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="check only the files staged for the next commit (what the pre-commit hook runs)")
     ap.add_argument("--install-hook", action="store_true",
                     help="make leash the pre-commit hook of the repo you are in")
+    ap.add_argument("--usage", nargs="?", type=int, const=30, metavar="DAYS",
+                    help="count how often each rule was used in your Claude Code sessions (default: last 30 days)")
+    ap.add_argument("--logs", metavar="DIR", help="where Claude Code keeps session logs (default: ~/.claude/projects)")
     ap.add_argument("--version", action="version", version=f"leash {__version__}")
     args = ap.parse_args(argv)
 
@@ -109,11 +112,37 @@ def main(argv: list[str] | None = None) -> int:
         for repo in repos:
             findings.extend(audit_history(repo, result.ignores, result.roots, use_gh=not args.no_gh))
 
+    if args.usage:
+        add_usage(findings, args.usage, Path(args.logs).expanduser() if args.logs else usage.default_log_dir())
+
     if args.json:
         print(as_json(findings, len(result.sources)))
     else:
         print(text(findings, len(result.sources), show_low=args.all), end="")
     return exit_code(findings, args.fail_on)
+
+
+def add_usage(findings: list[Finding], days: int, log_dir: Path) -> None:
+    """Add 'used N times' to each rule finding, and advice for unused or wide rules."""
+    uses, files = usage.read_uses(log_dir, days)
+    findings.append(Finding("info", "usage", f"rule use counted from {files} Claude Code session(s) in the last {days} days",
+                            "Read from the session logs on this machine. Nothing was kept or sent.", "", str(log_dir)))
+    for f in findings:
+        if f.kind != "rule" or not f.source_rule:
+            continue
+        n = usage.count(f.source_rule, f.project, uses)
+        if n is None:
+            continue
+        if n == 0:
+            f.title += f" (not used in the last {days} days)"
+            if f.level in ("critical", "high", "medium"):
+                f.fix = f"It was not used in the last {days} days, so removing it costs nothing. " + f.fix
+        else:
+            f.title += f" (used {n} time{'s' if n != 1 else ''} in the last {days} days)"
+            top = usage.top_commands(f.source_rule, f.project, uses)
+            if top and f.level in ("critical", "high") and len(set(top)) <= 3:
+                exact = ", ".join(f"`Bash({c})`" for c in top)
+                f.fix += f" It was used for: {exact}. Allowing just those would cover what you use."
 
 
 if __name__ == "__main__":  # pragma: no cover

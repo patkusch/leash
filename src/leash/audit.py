@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from . import gitcheck, history, silent
@@ -24,9 +24,12 @@ class Finding:
     path: str           # the file it came from
     project: str | None = None
     rule: str | None = None   # the rule text, with any secret masked
+    source_rule: str | None = field(default=None, repr=False)   # unmasked, for matching only; never printed
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        d.pop("source_rule", None)
+        return d
 
 
 def _proj(src: Source) -> str | None:
@@ -80,8 +83,11 @@ def rule_fix(rule: Rule, g: Grade, where: str = "the allow list") -> str:
 def _rule_finding(raw: str, r: Rule, src: Source, where: str = "the allow list", project: str | None = None,
                   fix: str | None = None) -> Finding:
     g = grade(r)
-    return Finding(g.level, "rule", f"may {g.what}, without asking", g.why, fix or rule_fix(r, g, where),
-                   str(src.path), project if project is not None else _proj(src), redact(raw))
+    f = Finding(g.level, "rule", f"may {g.what}, without asking", g.why, fix or rule_fix(r, g, where),
+                str(src.path), project if project is not None else _proj(src), redact(raw))
+    if src.agent == "Claude Code":
+        f.source_rule = raw
+    return f
 
 
 def _permission_findings(src: Source) -> list[Finding]:

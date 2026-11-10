@@ -36,14 +36,18 @@ class Rule:
 
     @property
     def is_prefix(self) -> bool:
-        return self.spec is not None and self.spec.endswith(":*")
+        """`Bash(npm test:*)` and the newer `Bash(npm test *)` both mean 'starts with npm test'."""
+        if self.spec is None:
+            return False
+        s = self.spec.rstrip()
+        return s.endswith(":*") or (s.endswith(" *") and len(s.split()) > 1)
 
     @property
     def command(self) -> str | None:
-        """For Bash rules: the command text without the trailing ':*'."""
+        """For Bash rules: the command text without the trailing ':*' or ' *'."""
         if self.tool != "Bash" or self.spec is None:
             return None
-        return self.spec[:-2] if self.is_prefix else self.spec
+        return self.spec.rstrip()[:-2].rstrip() if self.is_prefix else self.spec
 
 
 def parse(raw: str) -> Rule:
@@ -129,6 +133,13 @@ def _grade_bash(rule: Rule) -> Grade:
     if len(tokens) >= 2 and tokens[1] == "*":
         return Grade("high", f"run `{tokens[0]}` followed by anything",
                      "The `*` inside the rule covers every sub-command, such as `git push` under `git *`.")
+    # A bare program name with a prefix rule covers all its risky sub-commands: Bash(git:*) includes git push.
+    if rule.is_prefix and len(tokens) == 1:
+        risky = [e for e in (*_SEND, *_DESTROY, *_RUN_ANYTHING)
+                 if len(e.split()) > 1 and e.split()[0] == tokens[0]]
+        if risky:
+            return Grade("high", f"run `{tokens[0]}` followed by anything",
+                         f"That includes `{risky[0]}`, which can send, delete or run things without a second look.")
     g = _grade_bash_head(head, shown, scope)
     if "*" in command and "*" not in head.split()[0]:
         return Grade("medium" if g.level == "low" else g.level, g.what,

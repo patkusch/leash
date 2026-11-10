@@ -3,6 +3,9 @@
 ## 0.3.0 (unreleased)
 
 - **Settings that act on their own.** Hooks, command helpers such as `apiKeyHelper` and `statusLine`, `enableAllProjectMcpServers`, and `additionalDirectories` are now checked. A hook that downloads and runs a script is high. A shared project file that approves its own MCP servers is high. Secrets in any of these commands are critical.
+- **Which rules you actually use.** `--usage` reads your Claude Code session logs on this machine and adds "used 12 times" or "not used in the last 30 days" to every rule. An unused risky rule is marked as free to remove. A wide risky rule that was used for only a few exact commands gets those commands as the suggested replacement.
+- Rules in the newer form `Bash(npm run test *)` are now read as "starts with", like `Bash(npm run test:*)`.
+- `Bash(git:*)`, `Bash(npm:*)` and similar bare program names are now high, because they cover `git push`, `npm publish` and the like.
 - `defaultMode: bypassPermissions` in a project or local file is now medium, not critical: current Claude Code ignores it there (older versions did not). `auto` mode is listed as low.
 
 ## 0.2.0 (2026-11-10)
