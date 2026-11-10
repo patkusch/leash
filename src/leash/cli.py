@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import __version__, fix, gitcheck, hook, usage
 from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
-from .report import as_json, text
+from .report import as_json, as_sarif, text
 from .rules import grade, parse
 from .secrets import find_secrets, redact
 from .sources import scan
@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rule", action="append", default=[], metavar="RULE",
                     help="grade one permission rule and exit, e.g. --rule 'Bash(git push:*)'")
     ap.add_argument("--json", action="store_true", help="print findings as JSON")
+    ap.add_argument("--sarif", action="store_true",
+                    help="print SARIF for GitHub code scanning (medium and worse findings only)")
     ap.add_argument("--all", action="store_true", help="show low findings too")
     ap.add_argument("--fail-on", choices=("high", "critical", "never"), default="high",
                     help="which findings make leash exit with an error (default: high)")
@@ -130,7 +132,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.usage:
         add_usage(findings, args.usage, Path(args.logs).expanduser() if args.logs else usage.default_log_dir())
 
-    if args.json:
+    if args.sarif:
+        print(as_sarif(findings))
+    elif args.json:
         print(as_json(findings, len(result.sources)))
     else:
         print(text(findings, len(result.sources), show_low=args.all), end="")

@@ -38,6 +38,19 @@ jobs:
         with:
           path: docs/example
           fail-on: never
+      - name: The action writes SARIF that names the planted secrets
+        uses: ./
+        with:
+          path: docs/example
+          fail-on: never
+          sarif-file: leash.sarif
+      - run: |
+          python3 -c "
+          import json; d = json.load(open('leash.sarif'))
+          r = d['runs'][0]['results']
+          assert d['version'] == '2.1.0' and any(x['ruleId'] == 'leash/secret/critical' for x in r), r
+          assert all(x['locations'][0]['physicalLocation']['artifactLocation']['uri'].startswith('docs/example/') for x in r)
+          print(len(r), 'results')"
       - name: The action passes on the repo itself (the example is in .leashignore)
         uses: ./
         with:

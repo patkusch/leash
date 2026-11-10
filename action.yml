@@ -12,6 +12,14 @@ inputs:
   fail-on:
     description: "Which findings fail the step: critical, high or never."
     default: critical
+  sarif-file:
+    description: "Also write SARIF to this path, for github/codeql-action/upload-sarif. Empty means no SARIF."
+    default: ""
+
+outputs:
+  sarif-file:
+    description: The SARIF file written, if any.
+    value: ${{ inputs.sarif-file }}
 
 runs:
   using: composite
@@ -21,8 +29,12 @@ runs:
       env:
         LEASH_PATH: ${{ inputs.path }}
         LEASH_FAIL_ON: ${{ inputs.fail-on }}
+        LEASH_SARIF: ${{ inputs.sarif-file }}
         LEASH_SRC: ${{ github.action_path }}/src
       run: |
+        if [ -n "$LEASH_SARIF" ]; then
+          PYTHONPATH="$LEASH_SRC" python3 -m leash "$LEASH_PATH" --no-user --no-gh --sarif --fail-on never > "$LEASH_SARIF"
+        fi
         report="$(mktemp)"
         set +e
         PYTHONPATH="$LEASH_SRC" python3 -m leash "$LEASH_PATH" --no-user --no-gh --all --fail-on "$LEASH_FAIL_ON" > "$report"
