@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(git status)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(PGPASSWORD=example-only-not-real psql -h db.internal -U app -c \"select count(*) from orders\":*)",
+      "Bash(sshpass -p example-only-not-real ssh deploy@10.0.0.7 'systemctl restart app':*)",
+      "WebFetch",
+      "mcp__slack",
+      "Read(~/.aws/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)"
+    ]
+  }
+}

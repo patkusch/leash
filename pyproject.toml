@@ -1,0 +1,29 @@
+[project]
+name = "leash"
+version = "0.1.0"
+description = "See what your coding agents may do without asking, and whether a secret slipped into that list."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+readme = "README.md"
+keywords = ["claude-code", "codex", "coding-agent", "permissions", "secrets", "security", "audit"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Topic :: Software Development",
+]
+dependencies = []
+
+[project.scripts]
+leash = "leash.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/patkusch/leash"
+Issues = "https://github.com/patkusch/leash/issues"
