@@ -9,6 +9,16 @@ Claude Code:
     managed-settings.json                    set by an administrator
 Codex CLI:
     ~/.codex/config.toml                     approval policy and sandbox mode
+Gemini CLI:
+    ~/.gemini/settings.json, <project>/.gemini/settings.json
+                                             tools.allowed, approval mode, MCP servers
+Cursor:
+    ~/.cursor/mcp.json, <project>/.cursor/mcp.json        MCP servers
+VS Code:
+    <project>/.vscode/mcp.json               MCP servers (under "servers")
+
+A `.leashignore` file in any folder lists paths below it to skip, one per line,
+such as `docs/example`. A folder you name on the command line is never skipped.
 """
 
 from __future__ import annotations
@@ -25,7 +35,8 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
     tomllib = None
 
 _SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", ".tox", ".mypy_cache",
-              ".pytest_cache", "Library", ".Trash", "dist", "build", ".next", "target", ".idea", ".vscode"}
+              ".pytest_cache", "Library", ".Trash", "dist", "build", ".next", "target", ".idea"}
+MARKER_DIRS = {".claude", ".cursor", ".vscode", ".gemini"}
 MAX_DEPTH = 8
 
 
@@ -33,11 +44,12 @@ MAX_DEPTH = 8
 class Source:
     path: Path
     kind: str                # see module docstring
-    agent: str               # "Claude Code" or "Codex CLI"
+    agent: str               # "Claude Code", "Codex CLI", "Gemini CLI", "Cursor", "VS Code"
     project: Path | None     # the project folder this file belongs to, if any
     shared: bool             # True if the file is normally committed and shared
     data: dict = field(default_factory=dict)
     error: str | None = None
+    text: str = ""           # the raw file text
 
     @property
     def label(self) -> str:
@@ -49,29 +61,48 @@ class Source:
             "claude-mcp": "project MCP servers",
             "claude-global": "Claude Code's per-project record",
             "codex": "Codex CLI config",
+            "gemini": "Gemini CLI settings",
+            "cursor-mcp": "Cursor MCP servers",
+            "vscode-mcp": "VS Code MCP servers",
         }.get(self.kind, self.kind)
 
 
-def _load_json(path: Path) -> tuple[dict, str | None]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return {}, "missing"
-    except (OSError, ValueError) as e:
-        return {}, f"could not read: {e}"
-    return (data if isinstance(data, dict) else {}), None
+@dataclass
+class Scan:
+    sources: list[Source]
+    repos: list[Path]                       # git repos found under the folders
+    ignores: list[Path]                     # paths a .leashignore asked to skip
+    roots: list[Path]                       # the folders asked for, resolved
 
 
-def _load_toml(path: Path) -> tuple[dict, str | None]:
-    if tomllib is None:
-        return {}, "needs Python 3.11 or newer to read TOML"
+def _read(path: Path) -> tuple[str, str | None]:
     try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        return path.read_text(encoding="utf-8"), None
     except FileNotFoundError:
-        return {}, "missing"
-    except (OSError, ValueError) as e:
-        return {}, f"could not read: {e}"
-    return data, None
+        return "", "missing"
+    except OSError as e:
+        return "", f"could not read: {e}"
+
+
+def _load(path: Path, fmt: str = "json") -> tuple[dict, str, str | None]:
+    text, err = _read(path)
+    if err:
+        return {}, text, err
+    try:
+        if fmt == "toml":
+            if tomllib is None:
+                return {}, text, "needs Python 3.11 or newer to read TOML"
+            data = tomllib.loads(text)
+        else:
+            data = json.loads(text) if text.strip() else {}
+    except ValueError as e:
+        return {}, text, f"could not read: {e}"
+    return (data if isinstance(data, dict) else {}), text, None
+
+
+def _source(path: Path, kind: str, agent: str, project: Path | None, shared: bool, fmt: str = "json") -> Source:
+    data, text, err = _load(path, fmt)
+    return Source(path, kind, agent, project, shared, data, err, text)
 
 
 def managed_settings_paths() -> list[Path]:
@@ -83,72 +114,101 @@ def managed_settings_paths() -> list[Path]:
 
 
 def user_sources(home: Path | None = None) -> list[Source]:
-    """The machine-wide files: your own settings, the managed file, Codex's config."""
+    """The machine-wide files: your own settings, the managed file, other agents' user configs."""
     home = home or Path.home()
-    out: list[Source] = []
-    p = home / ".claude" / "settings.json"
-    if p.exists():
-        data, err = _load_json(p)
-        out.append(Source(p, "claude-user", "Claude Code", None, False, data, err))
-    for p in managed_settings_paths():
-        if p.exists():
-            data, err = _load_json(p)
-            out.append(Source(p, "claude-managed", "Claude Code", None, False, data, err))
-    p = home / ".claude.json"
-    if p.exists():
-        data, err = _load_json(p)
-        out.append(Source(p, "claude-global", "Claude Code", None, False, data, err))
-    p = home / ".codex" / "config.toml"
-    if p.exists():
-        data, err = _load_toml(p)
-        out.append(Source(p, "codex", "Codex CLI", None, False, data, err))
-    return out
+    wanted = [
+        (home / ".claude" / "settings.json", "claude-user", "Claude Code", "json"),
+        *[(p, "claude-managed", "Claude Code", "json") for p in managed_settings_paths()],
+        (home / ".claude.json", "claude-global", "Claude Code", "json"),
+        (home / ".codex" / "config.toml", "codex", "Codex CLI", "toml"),
+        (home / ".gemini" / "settings.json", "gemini", "Gemini CLI", "json"),
+        (home / ".cursor" / "mcp.json", "cursor-mcp", "Cursor", "json"),
+    ]
+    return [_source(p, kind, agent, None, False, fmt) for p, kind, agent, fmt in wanted if p.is_file()]
 
 
-def project_sources_in(project: Path) -> list[Source]:
+def project_sources_in(project: Path, home: Path | None = None) -> list[Source]:
     """The permission files directly inside one project folder."""
+    home = (home or Path.home()).resolve()
     out: list[Source] = []
-    claude = project / ".claude"
-    for name, kind, shared in (("settings.json", "claude-project", True),
-                               ("settings.local.json", "claude-local", False)):
-        p = claude / name
+    at_home = project.resolve() == home   # these are user files, read by user_sources
+    candidates = [
+        (project / ".claude" / "settings.json", "claude-project", "Claude Code", True),
+        (project / ".claude" / "settings.local.json", "claude-local", "Claude Code", False),
+        (project / ".mcp.json", "claude-mcp", "Claude Code", True),
+        (project / ".gemini" / "settings.json", "gemini", "Gemini CLI", True),
+        (project / ".cursor" / "mcp.json", "cursor-mcp", "Cursor", True),
+        (project / ".vscode" / "mcp.json", "vscode-mcp", "VS Code", True),
+    ]
+    for p, kind, agent, shared in candidates:
+        if at_home and kind in ("claude-project", "gemini", "cursor-mcp"):
+            continue
         if p.is_file():
-            data, err = _load_json(p)
-            out.append(Source(p, kind, "Claude Code", project, shared, data, err))
-    p = project / ".mcp.json"
-    if p.is_file():
-        data, err = _load_json(p)
-        out.append(Source(p, "claude-mcp", "Claude Code", project, True, data, err))
+            out.append(_source(p, kind, agent, project, shared))
     return out
 
 
-def find_projects(roots: list[Path], max_depth: int = MAX_DEPTH) -> list[Path]:
-    """Every folder under roots that holds a .claude/ folder or a .mcp.json file."""
+def read_ignore(folder: Path) -> list[Path]:
+    """Paths listed in folder/.leashignore, resolved against that folder."""
+    p = folder / ".leashignore"
+    if not p.is_file():
+        return []
+    out = []
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            out.append((folder / line.strip("/")).resolve())
+    return out
+
+
+def is_ignored(path: Path, ignores: list[Path], roots: list[Path]) -> bool:
+    """True if path is under an ignored path, unless a folder you asked for is itself under it."""
+    path = path.resolve()
+    for ig in ignores:
+        if path == ig or ig in path.parents:
+            if any(r == ig or ig in r.parents for r in roots if r == path or r in path.parents):
+                continue
+            return True
+    return False
+
+
+def scan(roots: list[Path], include_user: bool = True, home: Path | None = None,
+         max_depth: int = MAX_DEPTH) -> Scan:
+    roots = [r.expanduser().resolve() for r in roots]
+    sources: list[Source] = user_sources(home) if include_user else []
+    repos: list[Path] = []
+    ignores: list[Path] = []
     seen: set[Path] = set()
-    found: list[Path] = []
     for root in roots:
-        root = root.expanduser().resolve()
         if not root.is_dir():
             continue
         base_depth = len(root.parts)
         for dirpath, dirnames, filenames in os.walk(root):
             here = Path(dirpath)
-            depth = len(here.parts) - base_depth
-            dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS and not (d.startswith(".") and d != ".claude"))
-            if depth >= max_depth:
+            if here != root and is_ignored(here, ignores, roots):
                 dirnames[:] = []
-            if (".claude" in dirnames or ".mcp.json" in filenames) and here not in seen:
+                continue
+            ignores.extend(read_ignore(here))
+            if (".git" in dirnames or ".git" in filenames) and here not in repos:
+                repos.append(here)
+            markers = [d for d in dirnames if d in MARKER_DIRS]
+            if (markers or ".mcp.json" in filenames) and here not in seen:
                 seen.add(here)
-                found.append(here)
-            if ".claude" in dirnames:
-                dirnames.remove(".claude")   # nothing to find inside it
+                sources.extend(project_sources_in(here, home))
+            depth = len(here.parts) - base_depth
+            dirnames[:] = sorted(d for d in dirnames
+                                 if d not in _SKIP_DIRS and not d.startswith(".") and depth < max_depth)
+    return Scan(sources, repos, ignores, roots)
+
+
+def find_projects(roots: list[Path], max_depth: int = MAX_DEPTH) -> list[Path]:
+    """Every folder under roots that holds agent settings."""
+    found: list[Path] = []
+    for s in scan(roots, include_user=False, max_depth=max_depth).sources:
+        if s.project is not None and s.project not in found:
+            found.append(s.project)
     return found
 
 
 def discover(roots: list[Path], include_user: bool = True, home: Path | None = None) -> list[Source]:
-    out: list[Source] = []
-    if include_user:
-        out.extend(user_sources(home))
-    for project in find_projects(roots):
-        out.extend(project_sources_in(project))
-    return out
+    return scan(roots, include_user, home).sources

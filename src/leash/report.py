@@ -9,21 +9,21 @@ from .audit import Finding, sort_findings
 
 _HEAD = {
     "critical": "CRITICAL  fix today",
-    "high": "HIGH      the agent can send, delete or run anything here",
+    "high": "HIGH      can send, delete, run anything, or read where keys live",
     "medium": "MEDIUM    worth a look",
     "low": "LOW       fine, listed so you know",
     "info": "INFO",
 }
 
 
-def text(findings: list[Finding], sources_checked: int, show_low: bool = True) -> str:
+def text(findings: list[Finding], sources_checked: int, show_low: bool = True, what: str = "file") -> str:
     lines: list[str] = []
     findings = sort_findings(findings)
     counts = Counter(f.level for f in findings)
-    lines.append(f"leash looked at {sources_checked} file(s).")
+    lines.append(f"leash looked at {sources_checked} {what}(s).")
     if not findings:
         lines.append("No standing permissions and no secrets found.")
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"
     summary = ", ".join(f"{counts[l]} {l}" for l in ("critical", "high", "medium", "low", "info") if counts[l])
     lines.append(f"Found: {summary}.")
     lines.append("")

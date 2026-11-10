@@ -1,0 +1,7 @@
+- id: leash
+  name: leash (agent permission files and the secrets in them)
+  description: Stops a "don't ask again" file, or a secret in an agent or MCP config file, from being committed.
+  entry: leash --staged
+  language: python
+  pass_filenames: false
+  always_run: true

@@ -1,11 +1,11 @@
 [project]
 name = "leash"
-version = "0.1.0"
+version = "0.2.0"
 description = "See what your coding agents may do without asking, and whether a secret slipped into that list."
 requires-python = ">=3.11"
 license = { text = "MIT" }
 readme = "README.md"
-keywords = ["claude-code", "codex", "coding-agent", "permissions", "secrets", "security", "audit"]
+keywords = ["claude-code", "codex", "gemini-cli", "cursor", "mcp", "pre-commit", "coding-agent", "permissions", "secrets", "security", "audit"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",

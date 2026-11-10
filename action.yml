@@ -1,0 +1,39 @@
+name: leash
+description: Check coding-agent permission and MCP files for saved secrets, wide-open rules, and secrets left in git history.
+author: patkusch
+branding:
+  icon: lock
+  color: orange
+
+inputs:
+  path:
+    description: Folder to check, relative to the repo.
+    default: "."
+  fail-on:
+    description: "Which findings fail the step: critical, high or never."
+    default: critical
+
+runs:
+  using: composite
+  steps:
+    - name: Run leash
+      shell: bash
+      env:
+        LEASH_PATH: ${{ inputs.path }}
+        LEASH_FAIL_ON: ${{ inputs.fail-on }}
+        LEASH_SRC: ${{ github.action_path }}/src
+      run: |
+        report="$(mktemp)"
+        set +e
+        PYTHONPATH="$LEASH_SRC" python3 -m leash "$LEASH_PATH" --no-user --no-gh --all --fail-on "$LEASH_FAIL_ON" > "$report"
+        code=$?
+        set -e
+        cat "$report"
+        {
+          echo "## leash"
+          echo
+          echo '```'
+          cat "$report"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit $code

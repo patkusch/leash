@@ -1,0 +1,15 @@
+# Changelog
+
+## 0.2.0 (2026-11-10)
+
+- **Old versions in git.** leash now reads every saved version of every agent file in git history, including deleted ones, and reports secrets that are gone from the file but still in the history. With a remote, that is critical.
+- **Pre-commit hook.** `leash --install-hook` refuses a commit that would add your "don't ask again" file, or a secret in an agent or MCP file. It checks the staged version, not the file on disk. Also works with the pre-commit tool.
+- **GitHub Action.** `uses: patkusch/leash@v0.2.0`, with the report on the run's summary page.
+- **More agents.** Gemini CLI settings (allowed tools, approval mode, MCP `trust`), and MCP files for Cursor and VS Code.
+- **Advice that fits the rule.** The "what to do" line now names the right fix for each kind of rule, such as a deny rule for a sensitive read, or a single site for web fetches. Low findings say "Nothing to do."
+- **`--fail-on`** to choose which findings fail the run, and **`.leashignore`** to skip test fixtures.
+- Your home folder's own settings are no longer read twice when you scan from home.
+
+## 0.1.0 (2026-11-10)
+
+- First version: Claude Code and Codex permission files, rule grades, secrets in rules, git status of the "don't ask again" file.
