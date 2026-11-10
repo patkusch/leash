@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, gitcheck, hook, usage
+from . import __version__, fix, gitcheck, hook, usage
 from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
 from .report import as_json, text
 from .rules import grade, parse
@@ -53,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-gh", action="store_true", help="do not ask GitHub whether a repo is public")
     ap.add_argument("--gitignore", action="store_true",
                     help="add .claude/settings.local.json to .gitignore in every repo where it is missing")
+    ap.add_argument("--fix", action="store_true",
+                    help="remove rules that have a secret in them (a backup goes to ~/.leash/backups first)")
     ap.add_argument("--staged", action="store_true",
                     help="check only the files staged for the next commit (what the pre-commit hook runs)")
     ap.add_argument("--install-hook", action="store_true",
@@ -99,6 +101,19 @@ def main(argv: list[str] | None = None) -> int:
                     done.add(root)
                     if gitcheck.add_to_gitignore(root):
                         print(f"added .claude/settings.local.json to {root / '.gitignore'}", file=sys.stderr)
+
+    if args.fix:
+        changed = False
+        for src in result.sources:
+            removed, backup = fix.fix(src)
+            for name, rule in removed:
+                print(f"removed from {name} in {src.path}: {rule}", file=sys.stderr)
+            if backup:
+                changed = True
+                print(f"  the old file is saved at {backup} (only you can read it)", file=sys.stderr)
+        if changed:
+            print("Now rotate those secrets: removing them does not un-share them.", file=sys.stderr)
+            result = scan([Path(f) for f in args.folders], include_user=not args.no_user)
 
     findings = []
     for src in result.sources:
