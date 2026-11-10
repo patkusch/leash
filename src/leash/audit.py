@@ -6,7 +6,7 @@ import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import gitcheck, history
+from . import gitcheck, history, silent
 from .rules import Grade, Rule, grade, grade_mode, parse
 from .secrets import find_secrets, redact
 from .sources import Source, is_ignored
@@ -90,7 +90,12 @@ def _permission_findings(src: Source) -> list[Finding]:
     mode = perms.get("defaultMode") or src.data.get("defaultMode")
     g = grade_mode(mode)
     if g:
-        out.append(Finding(g.level, "mode", f"may {g.what} (defaultMode is `{mode}`)", g.why,
+        level, why = g.level, g.why
+        if src.kind in ("claude-project", "claude-local") and mode in ("bypassPermissions", "auto"):
+            level = "medium"
+            why += (" Current Claude Code versions ignore this mode in project files, but versions before "
+                    "v2.1.257 honoured bypassPermissions there.")
+        out.append(Finding(level, "mode", f"may {g.what} (defaultMode is `{mode}`)", why,
                            "Remove `defaultMode` or set it to `default`.", str(src.path), _proj(src),
                            f"defaultMode: {mode}"))
     for raw in perms.get("allow") or []:
@@ -109,6 +114,9 @@ def _permission_findings(src: Source) -> list[Finding]:
         out.append(Finding("info", "rule", f"{len(denies)} deny rule(s) are set: these always ask or refuse",
                            "Deny rules win over allow rules. Good.", "", str(src.path), _proj(src),
                            "; ".join(redact(d) for d in denies)))
+    for d in silent.findings_for(src.data, src.shared):
+        out.append(Finding(d["level"], d["kind"], d["title"], d["detail"], d["fix"], str(src.path), _proj(src),
+                           d.get("rule")))
     env = src.data.get("env")
     if isinstance(env, dict):
         for k, v in env.items():

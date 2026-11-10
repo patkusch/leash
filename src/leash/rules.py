@@ -239,6 +239,9 @@ def grade_mode(mode: str | None) -> Grade | None:
     if mode == "dontAsk":
         return Grade("high", "run anything not on the deny list without asking",
                      "Only the deny list holds. Everything else is silent.")
+    if mode == "auto":
+        return Grade("low", "let an automatic reviewer decide which actions need your yes (auto mode)",
+                     "Risky actions are still stopped, but by a model, not by you.")
     if mode == "acceptEdits":
         return Grade("medium", "change any file without asking",
                      "File edits go in unread. Commands still ask.")

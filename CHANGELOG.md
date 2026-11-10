@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+- **Settings that act on their own.** Hooks, command helpers such as `apiKeyHelper` and `statusLine`, `enableAllProjectMcpServers`, and `additionalDirectories` are now checked. A hook that downloads and runs a script is high. A shared project file that approves its own MCP servers is high. Secrets in any of these commands are critical.
+- `defaultMode: bypassPermissions` in a project or local file is now medium, not critical: current Claude Code ignores it there (older versions did not). `auto` mode is listed as low.
+
 ## 0.2.0 (2026-11-10)
 
 - **Old versions in git.** leash now reads every saved version of every agent file in git history, including deleted ones, and reports secrets that are gone from the file but still in the history. With a remote, that is critical.

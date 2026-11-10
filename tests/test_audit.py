@@ -32,9 +32,10 @@ class PermissionAuditTests(unittest.TestCase):
         rules = by_kind(f, "rule")
         self.assertEqual(sorted(r.level for r in rules), ["critical", "high", "low"])
 
-    def test_bypass_mode_is_critical(self):
+    def test_bypass_mode_in_local_file_is_medium(self):
+        # current Claude Code ignores bypassPermissions in project and local files
         f = audit_source(self.src({"permissions": {"defaultMode": "bypassPermissions"}}), use_git=False)
-        self.assertEqual([x.level for x in by_kind(f, "mode")], ["critical"])
+        self.assertEqual([x.level for x in by_kind(f, "mode")], ["medium"])
 
     def test_deny_rules_are_reported_as_info(self):
         f = audit_source(self.src({"permissions": {"deny": ["Bash(rm:*)", "Read(.env)"]}}), use_git=False)
