@@ -1,17 +1,25 @@
 # leash
 
+[![tests](https://github.com/patkusch/leash/actions/workflows/ci.yml/badge.svg)](https://github.com/patkusch/leash/actions/workflows/ci.yml)
+
 ## What it does
 
 leash reads the files where your coding agents keep their standing permissions: the "yes, and don't ask again" answers you gave Claude Code, the approval and sandbox settings of Codex CLI, Gemini CLI's allowed tools, and the MCP server files of Claude Code, Cursor, VS Code and Gemini CLI.
 
-It tells you four things in plain English:
+It tells you five things in plain English:
 
 1. **What the agent may now do without asking.** Each rule is graded: can it send things off your machine, delete things, run any program, or only read and test?
 2. **Whether a password or key is written into one of those rules.** When you let a command through with "don't ask again", the rule is built from the command text. If the command had a password in it, the password is now in the rule.
 3. **Whether that file is in git.** If it is committed, or was committed once, everything in it is in the repo's history. Deleting the file does not help.
-4. **Whether an old version still holds a secret.** leash reads every saved version of every agent file in git history, including files you have since deleted, and reports any secret that is no longer in the file but is still in the history.
+4. **What runs on its own.** Hooks, helper commands such as `apiKeyHelper`, MCP servers a project approves for itself, and extra folders the agent may reach.
+5. **Whether an old version still holds a secret.** leash reads every saved version of every agent file in git history, including files you have since deleted, and reports any secret that is no longer in the file but is still in the history.
 
-It can also stop the leak before it happens: as a pre-commit hook, it refuses a commit that would add your "don't ask again" file or a secret in an agent file.
+It can also:
+
+- **show which rules you actually use**, from your own session logs, so you can delete the ones you don't;
+- **remove rules that hold a secret** (`--fix`), with a backup kept outside the project;
+- **stop the leak before it happens**, as a pre-commit hook;
+- **report to GitHub code scanning**, so findings show up in a repo's Security tab.
 
 It runs on your own computer. It never prints a secret in full, never writes one anywhere, and goes online only to ask GitHub whether a repo is public (and only if you have the `gh` tool; `--no-gh` turns that off).
 
@@ -49,6 +57,9 @@ Useful options:
 |---|---|
 | `--all` | also show the low findings (rules that only read or test) |
 | `--json` | print findings as JSON for a script or CI |
+| `--usage` | add "used 12 times" or "not used" to each rule, from your Claude Code session logs (last 30 days; `--usage 90` for more) |
+| `--fix` | remove rules that have a password or key in them; the old file is saved to `~/.leash/backups` first |
+| `--sarif` | print SARIF for GitHub code scanning instead of text |
 | `--fail-on critical` | exit with an error only for critical findings (`high` is the default, `never` always passes) |
 | `--gitignore` | add `.claude/settings.local.json` to `.gitignore` in every repo where it is not ignored |
 | `--rule 'Bash(git push:*)'` | grade one rule and stop, without looking at any file |
@@ -62,6 +73,29 @@ Useful options:
 Exit code: `2` if anything is critical (a secret, a fully open agent, a committed "don't ask again" file on a public repo), `1` if anything is high, `0` otherwise.
 
 To skip a folder, such as a test fixture with fake passwords in it, list it in a `.leashignore` file, one path per line. A folder you name on the command line is always checked, even if it is listed.
+
+## Which rules do you actually use?
+
+```bash
+leash --usage
+```
+
+leash reads the session logs Claude Code keeps in `~/.claude/projects` and counts, for each rule, how often a command fell under it in the last 30 days, in that rule's own project. It reads them on your machine and keeps nothing.
+
+- A risky rule that was **not used** is marked as free to remove.
+- A wide risky rule, such as `Bash(git push:*)`, that was used for only a few exact commands gets those commands as the suggested replacement, such as `Bash(git push origin main)`.
+
+Rules for file paths and websites are not counted yet.
+
+## Remove a leaked rule
+
+```bash
+leash --fix
+```
+
+This takes every rule that has a password or key in it out of Claude Code's `allow`, `ask` and `deny` lists and Gemini CLI's `tools.allowed`. Everything else in the file stays as it was. The old file is copied first to `~/.leash/backups`, a folder only you can read, and never next to the settings file, where it could be committed by mistake.
+
+Secrets in MCP server settings and in hooks are not removed, because that would break the server or hook. leash tells you where they are. Either way, **rotate the secret**: removing it does not un-share it.
 
 ## Stop it before the commit
 
@@ -78,7 +112,7 @@ If you use the [pre-commit](https://pre-commit.com) tool, add this to `.pre-comm
 ```yaml
 repos:
   - repo: https://github.com/patkusch/leash
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: leash
 ```
@@ -86,16 +120,38 @@ repos:
 ## In GitHub Actions
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v7
   with:
     fetch-depth: 0          # full history, so old versions are checked too
-- uses: patkusch/leash@v0.2.0
+- uses: patkusch/leash@v0.3.0
   with:
     path: .
     fail-on: critical       # or high, or never
 ```
 
 The report is printed in the log and on the run's summary page. No other packages are installed.
+
+To see findings in the repo's **Security** tab, write SARIF and upload it:
+
+```yaml
+permissions:
+  security-events: write
+  contents: read
+steps:
+  - uses: actions/checkout@v7
+    with:
+      fetch-depth: 0
+  - uses: patkusch/leash@v0.3.0
+    with:
+      fail-on: never
+      sarif-file: leash.sarif
+  - uses: github/codeql-action/upload-sarif@v4
+    with:
+      sarif_file: leash.sarif
+      category: leash
+```
+
+Each finding points at the line of the rule in the file.
 
 ## What the output looks like
 
@@ -150,6 +206,9 @@ Run `make demo` to see the whole thing.
 | `~/.cursor/mcp.json`, `<project>/.cursor/mcp.json` | you, often committed | tokens in MCP server settings |
 | `<project>/.vscode/mcp.json` | you, often committed | tokens in MCP server settings (VS Code keeps them under `servers`) |
 | git history of all the project files above | git | secrets in any old version, including deleted files |
+| Claude Code settings, beyond rules | you or your team | hooks, `apiKeyHelper`, `statusLine` and other helper commands, `enableAllProjectMcpServers`, `additionalDirectories`, `disableBypassPermissionsMode` |
+
+A hook or helper that downloads a script and runs it (`curl ... | sh`) is high. A shared project file that approves its own MCP servers is high, because a pull request that adds a server gets it started on everyone's machine. `defaultMode: bypassPermissions` in a project or local file is medium rather than critical: current Claude Code ignores it there, but versions before v2.1.257 did not.
 
 Gemini's `run_shell_command(git)` allows every command that starts with `git`, so leash grades it the way it grades Claude Code's `Bash(git:*)`.
 
@@ -160,7 +219,7 @@ The rule grades, from worst to best:
 | Grade | Means |
 |---|---|
 | critical | a secret in a rule, `Bash` with no limit, or permissions switched off |
-| high | can send data off the machine (`git push`, `curl`, `ssh`, `aws`...), delete (`rm`, `sudo`...), run any program (`python`, `bash`, `xargs`...), or read where keys live (`~/.ssh`, `.env`...) |
+| high | can send data off the machine (`git push`, `curl`, `ssh`, `aws`...), delete (`rm`, `sudo`...), run any program (`python`, `bash`, `xargs`...), or read where keys live (`~/.ssh`, `.env`...). A bare program name such as `Bash(git:*)` is high too, because it covers `git push` |
 | medium | puts changes into git without review, runs installers and project scripts, talks to a database, changes any file, sends requests to any website, or allows a whole MCP server |
 | low | reads, lists or tests |
 
@@ -185,7 +244,7 @@ leash reads settings, not sessions. For what an agent actually did, see [acta](h
 make test
 ```
 
-91 tests, no network, no home-folder files. Each one builds its own throw-away project or git repo.
+120 tests, no network, no home-folder files. Each one builds its own throw-away project or git repo.
 
 ## Licence
 
