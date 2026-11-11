@@ -1,6 +1,6 @@
 [project]
 name = "leash"
-version = "0.3.0"
+version = "0.4.0"
 description = "See what your coding agents may do without asking, and whether a secret slipped into that list."
 requires-python = ">=3.11"
 license = { text = "MIT" }

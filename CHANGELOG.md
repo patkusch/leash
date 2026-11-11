@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 (2026-11-11)
+
+Compared against gitleaks, TruffleHog, detect-secrets, mcp-scan and the OWASP MCP Security Cheat Sheet; these are the gaps that comparison showed.
+
+- **More agents.** Claude Desktop, Windsurf, Cline and Roo Code MCP files, and VS Code's user `mcp.json`. Cline's `autoApprove` and Roo Code's `alwaysAllow` lists are graded per tool.
+- **How MCP servers are started.** Unpinned `npx`/`uvx`/`pipx`/`dlx` packages, plain-http remotes, `--privileged` or root/home/socket mounts in Docker, host networking, unpinned images, pipe-to-shell starts and the old SSE transport.
+- **SpecStory chat transcripts.** Secrets in `.specstory/` chats, whether git ignores the folder, committed transcripts, deleted ones in history, and staged ones in the pre-commit hook.
+- **Baseline.** `--write-baseline` and `--baseline`, like detect-secrets: only new findings fail. No secret is written to the file. The Action takes a `baseline` input.
+- **Missing deny rules.** A `.env` file with no deny rule covering it is medium; key folders missing from your own deny list are noted; `--suggest` prints the rules to paste.
+- **Markdown report.** `--markdown`, now used for the Action's run summary.
+- **Benchmark.** 33 planted leaks and 32 lookalikes; 33 caught, 0 false alarms. The first run caught 29 and showed four tool flags to add: `redis-cli -a`, `sqlcmd -P`, `docker`/`podman`/`helm login -p`, `openssl -passin pass:`.
+- **JSON with comments** (and trailing commas) is read instead of reported as unreadable.
+- leash's own CI pins its actions to exact commits and Dependabot proposes updates.
+
 ## 0.3.0 (2026-11-10)
 
 - **Settings that act on their own.** Hooks, command helpers such as `apiKeyHelper` and `statusLine`, `enableAllProjectMcpServers`, and `additionalDirectories` are now checked. A hook that downloads and runs a script is high. A shared project file that approves its own MCP servers is high. Secrets in any of these commands are critical.
