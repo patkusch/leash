@@ -68,6 +68,12 @@ _VALUE_IN_COMMAND = [
      re.compile(r"\bsshpass\s+-p\s*(['\"]?)([^\s'\"$]{3,})\1"), 2),
     ("a password glued to -p for mysql",
      re.compile(r"\b(?:mysql|mysqldump|mysqladmin|mariadb)\b[^|;&\n]*?\s-p(?!assword)(['\"]?)([^\s'\"$-][^\s'\"]{2,})\1"), 2),
+    ("a password passed with a tool's own short flag",
+     re.compile(r"\b(?:redis-cli\b[^|;&\n]*?\s-a|(?:sqlcmd|bcp)\b[^|;&\n]*?\s-P|"
+                r"(?:docker|podman|nerdctl|helm|oras|skopeo)\s+(?:registry\s+)?login\b[^|;&\n]*?\s-p)"
+                r"\s+(['\"]?)(?!\$)([^\s'\"-][^\s'\"]{2,})\1"), 2),
+    ("a password passed to openssl",
+     re.compile(r"-pass(?:in|out)?\s+(['\"]?)pass:([^\s'\"$]{3,})\1"), 2),
     ("a password or token passed as a command option",
      re.compile(r"(?<![\w-])--?(?:password|passwd|pass|pw|token|api-?key|secret|access-?key|client-?secret)(?:=|\s+)(['\"]?)(?!\$)([^\s'\"$]{4,})\1", re.I), 2),
     ("a password inside a connection string",
