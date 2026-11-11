@@ -387,6 +387,11 @@ def _transcript_git(src: Source, has_secret: bool, use_gh: bool) -> list[Finding
 
 def audit_source(src: Source, use_git: bool = True, use_gh: bool = True) -> list[Finding]:
     if src.error:
+        if src.error.startswith("skipped"):
+            return [Finding("info", "error", f"{src.label} was not checked: {src.error[len('skipped: '):]}",
+                            "Anything in it, including a secret, was not looked at.",
+                            "Check why the file is so large; a real settings file is a few kilobytes.",
+                            str(src.path), _proj(src))]
         return [Finding("info", "error", f"could not read {src.label}: {src.error}", "", "", str(src.path),
                         _proj(src))]
     if src.kind == "transcript":

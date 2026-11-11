@@ -57,3 +57,22 @@ class FindProjectsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OversizeTests(unittest.TestCase):
+    def test_oversized_file_is_skipped_and_reported(self):
+        from unittest import mock
+
+        from leash import sources
+        from leash.audit import audit_source
+        with tempfile.TemporaryDirectory() as tmp:
+            p = write_json(Path(tmp) / "p" / ".claude" / "settings.local.json",
+                           {"permissions": {"allow": ["Bash"]}})
+            with mock.patch.object(sources, "MAX_SETTINGS_BYTES", 10):
+                src = discover([Path(tmp)], include_user=False)[0]
+            self.assertTrue(src.error.startswith("skipped"))
+            self.assertEqual(src.data, {})
+            f = audit_source(src, use_git=False)
+            self.assertEqual([x.level for x in f], ["info"])
+            self.assertIn("was not checked", f[0].title)
+            self.assertTrue(p.exists())

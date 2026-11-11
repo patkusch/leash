@@ -50,6 +50,7 @@ MARKER_DIRS = {".claude", ".cursor", ".vscode", ".gemini", ".specstory"}
 MAX_TRANSCRIPTS = 2000
 MAX_TRANSCRIPT_BYTES = 5_000_000
 MAX_DEPTH = 8
+MAX_SETTINGS_BYTES = 20_000_000   # a settings file this big is almost certainly not one; read nothing
 
 
 @dataclass
@@ -164,6 +165,13 @@ def strip_jsonc(text: str) -> str:
 
 
 def _load(path: Path, fmt: str = "json") -> tuple[dict, str, str | None]:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        size = 0
+    if size > MAX_SETTINGS_BYTES:
+        return {}, "", (f"skipped: it is {size / 1_000_000:.0f} MB, over leash's "
+                        f"{MAX_SETTINGS_BYTES // 1_000_000} MB limit for a settings file")
     text, err = _read(path)
     if err:
         return {}, text, err
