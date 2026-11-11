@@ -84,6 +84,68 @@ def _read(path: Path) -> tuple[str, str | None]:
         return "", f"could not read: {e}"
 
 
+def strip_jsonc(text: str) -> str:
+    """Remove // and /* */ comments and trailing commas, outside strings. VS Code's mcp.json allows both."""
+    out: list[str] = []
+    i, n = 0, len(text)
+    in_str = False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_str = False
+            i += 1
+            continue
+        if c == '"':
+            in_str = True
+            out.append(c)
+            i += 1
+        elif text.startswith("//", i):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        else:
+            out.append(c)
+            i += 1
+    cleaned = "".join(out)
+    # trailing commas: a comma followed only by whitespace and then } or ], outside strings
+    result: list[str] = []
+    in_str = False
+    k = 0
+    while k < len(cleaned):
+        c = cleaned[k]
+        if in_str:
+            result.append(c)
+            if c == "\\" and k + 1 < len(cleaned):
+                result.append(cleaned[k + 1])
+                k += 2
+                continue
+            if c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+            result.append(c)
+        elif c == ",":
+            j = k + 1
+            while j < len(cleaned) and cleaned[j] in " \t\r\n":
+                j += 1
+            if j < len(cleaned) and cleaned[j] in "}]":
+                k += 1
+                continue
+            result.append(c)
+        else:
+            result.append(c)
+        k += 1
+    return "".join(result)
+
+
 def _load(path: Path, fmt: str = "json") -> tuple[dict, str, str | None]:
     text, err = _read(path)
     if err:
@@ -94,7 +156,10 @@ def _load(path: Path, fmt: str = "json") -> tuple[dict, str, str | None]:
                 return {}, text, "needs Python 3.11 or newer to read TOML"
             data = tomllib.loads(text)
         else:
-            data = json.loads(text) if text.strip() else {}
+            try:
+                data = json.loads(text) if text.strip() else {}
+            except ValueError:
+                data = json.loads(strip_jsonc(text))   # comments or trailing commas
     except ValueError as e:
         return {}, text, f"could not read: {e}"
     return (data if isinstance(data, dict) else {}), text, None
