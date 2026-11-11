@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 (2026-11-11)
+
+- **Tested on real commands.** `bench/real_commands.py` runs the secret finder over the shell commands in your own Claude Code sessions. On the author's 12,999 different commands it flagged 32 (0.25%), nearly all test files with fake passwords on purpose. It showed two placeholder values to ignore (`dummy-...`, `fake_...`) and one missed shape, Stripe webhook secrets (`whsec_...`), now caught. The benchmark is now 34 of 34 caught, 0 of 34 false alarms.
+- **`--fail-on medium`**, for runs that should fail on anything worth a look.
+- **`--min-level`** hides findings below a level in every output format; the exit code still counts all of them.
+- **JSON output** now says which tool and version wrote it, and a format number.
+- **`.leashignore` patterns** such as `**/fixtures` and `*.example`, matched as in `.gitignore`.
+- **Oversized settings files** (over 20 MB) are skipped and reported as not checked, instead of read whole.
+- **`--help`** ends with seven example commands and what each exit code means.
+- **CONTRIBUTING.md** explains how to add a secret shape and prove it with the benchmark.
+
 ## 0.4.0 (2026-11-11)
 
 Compared against gitleaks, TruffleHog, detect-secrets, mcp-scan and the OWASP MCP Security Cheat Sheet; these are the gaps that comparison showed.

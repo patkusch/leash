@@ -90,7 +90,7 @@ To skip a folder, such as a test fixture with fake passwords in it, list it in a
 
 Run leash alongside a general secret scanner, not instead of one.
 
-On a benchmark of 33 planted leaks and 32 harmless lookalikes, leash catches 33 and raises no false alarms. The first run caught 29; the four misses taught it four more tool flags. The cases and the finder share an author, so read [bench/results.md](bench/results.md) for what that does and does not show. Run it with `make bench`.
+On a benchmark of 34 planted leaks and 34 harmless lookalikes, leash catches 34 and raises no false alarms. The first run caught 29; the four misses taught it four more tool flags. The cases and the finder share an author, so read [bench/results.md](bench/results.md) for what that does and does not show. Run it with `make bench`.
 
 ## Accept what you have reviewed
 
@@ -139,7 +139,7 @@ If you use the [pre-commit](https://pre-commit.com) tool, add this to `.pre-comm
 ```yaml
 repos:
   - repo: https://github.com/patkusch/leash
-    rev: v0.4.0
+    rev: v0.4.1
     hooks:
       - id: leash
 ```
@@ -150,7 +150,7 @@ repos:
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0          # full history, so old versions are checked too
-- uses: patkusch/leash@v0.4.0
+- uses: patkusch/leash@v0.4.1
   with:
     path: .
     fail-on: critical       # or high, or never
@@ -169,7 +169,7 @@ steps:
   - uses: actions/checkout@v7
     with:
       fetch-depth: 0
-  - uses: patkusch/leash@v0.4.0
+  - uses: patkusch/leash@v0.4.1
     with:
       fail-on: never
       sarif-file: leash.sarif
@@ -280,7 +280,7 @@ leash reads settings, not sessions. For what an agent actually did, see [acta](h
 make test
 ```
 
-156 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
+166 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
 
 ## Licence
 
