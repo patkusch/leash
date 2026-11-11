@@ -32,6 +32,7 @@ such as `docs/example`. A folder you name on the command line is never skipped.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import sys
@@ -87,7 +88,7 @@ class Source:
 class Scan:
     sources: list[Source]
     repos: list[Path]                       # git repos found under the folders
-    ignores: list[Path]                     # paths a .leashignore asked to skip
+    ignores: list                           # IgnoreRule lines from .leashignore files
     roots: list[Path]                       # the folders asked for, resolved
 
 
@@ -266,27 +267,66 @@ def transcripts_in(project: Path) -> list[Source]:
     return out
 
 
-def read_ignore(folder: Path) -> list[Path]:
-    """Paths listed in folder/.leashignore, resolved against that folder."""
+@dataclass(frozen=True)
+class IgnoreRule:
+    """One line of a .leashignore: a path or a glob pattern, relative to the folder holding the file."""
+    base: Path
+    pattern: str
+
+    @property
+    def is_glob(self) -> bool:
+        return any(c in self.pattern for c in "*?[")
+
+    def matched(self, path: Path) -> Path | None:
+        """The ignored file or folder that path is in (or is), or None."""
+        try:
+            parts = path.relative_to(self.base).parts
+        except ValueError:
+            return None
+        if not parts:
+            return None
+        pat = self.pattern
+        if not self.is_glob:
+            target = (self.base / pat).resolve()
+            return target if (path == target or target in path.parents) else None
+        tries = [pat] + ([pat[3:]] if pat.startswith("**/") else [])
+        for i in range(1, len(parts) + 1):
+            prefix = "/".join(parts[:i])
+            name = parts[i - 1]
+            for t in tries:
+                if fnmatch.fnmatchcase(prefix, t) or ("/" not in t and fnmatch.fnmatchcase(name, t)):
+                    return self.base.joinpath(*parts[:i])
+        return None
+
+
+def read_ignore(folder: Path) -> list[IgnoreRule]:
+    """Lines of folder/.leashignore: folder or file paths, or glob patterns such as `**/fixtures` or `*.example`.
+
+    A pattern without a slash matches a file or folder name at any depth, as in .gitignore.
+    """
     p = folder / ".leashignore"
     if not p.is_file():
         return []
+    base = folder.resolve()
     out = []
     for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
-            out.append((folder / line.strip("/")).resolve())
+            out.append(IgnoreRule(base, line.strip("/")))
     return out
 
 
-def is_ignored(path: Path, ignores: list[Path], roots: list[Path]) -> bool:
-    """True if path is under an ignored path, unless a folder you asked for is itself under it."""
+def is_ignored(path: Path, ignores: list, roots: list[Path]) -> bool:
+    """True if path is in an ignored file or folder, unless a folder you asked for is itself inside it."""
     path = path.resolve()
     for ig in ignores:
-        if path == ig or ig in path.parents:
-            if any(r == ig or ig in r.parents for r in roots if r == path or r in path.parents):
-                continue
-            return True
+        hit = ig.matched(path) if isinstance(ig, IgnoreRule) else (
+            ig if (path == ig or ig in path.parents) else None)
+        if hit is None:
+            continue
+        if any(r == hit or hit in r.parents for r in roots if r == path or r in path.parents):
+            continue
+        return True
     return False
 
 
@@ -295,7 +335,7 @@ def scan(roots: list[Path], include_user: bool = True, home: Path | None = None,
     roots = [r.expanduser().resolve() for r in roots]
     sources: list[Source] = user_sources(home) if include_user else []
     repos: list[Path] = []
-    ignores: list[Path] = []
+    ignores: list[IgnoreRule] = []
     seen: set[Path] = set()
     for root in roots:
         if not root.is_dir():
@@ -312,7 +352,7 @@ def scan(roots: list[Path], include_user: bool = True, home: Path | None = None,
             markers = [d for d in dirnames if d in MARKER_DIRS]
             if (markers or ".mcp.json" in filenames) and here not in seen:
                 seen.add(here)
-                sources.extend(project_sources_in(here, home))
+                sources.extend(x for x in project_sources_in(here, home) if not is_ignored(x.path, ignores, roots))
             depth = len(here.parts) - base_depth
             dirnames[:] = sorted(d for d in dirnames
                                  if d not in _SKIP_DIRS and not d.startswith(".") and depth < max_depth)

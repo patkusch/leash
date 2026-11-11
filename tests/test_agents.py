@@ -132,3 +132,37 @@ class FailOnTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IgnoreGlobTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def names(self, roots):
+        return sorted(str(s.path.relative_to(self.root)) for s in scan(roots, include_user=False).sources)
+
+    def test_glob_patterns(self):
+        write_json(self.root / "app" / ".mcp.json", {})
+        write_json(self.root / "a" / "fixtures" / "x" / ".mcp.json", {})
+        write_json(self.root / "fixtures" / ".mcp.json", {})
+        write_json(self.root / "demo.example" / ".mcp.json", {})
+        (self.root / ".leashignore").write_text("**/fixtures\n*.example\n")
+        self.assertEqual(self.names([self.root]), ["app/.mcp.json"])
+
+    def test_glob_matches_single_files(self):
+        hist = self.root / "p" / ".specstory" / "history"
+        hist.mkdir(parents=True)
+        (hist / "keep.md").write_text("x")
+        (hist / "old-demo.md").write_text("x")
+        (self.root / ".leashignore").write_text("*-demo.md\n")
+        self.assertEqual(self.names([self.root]), ["p/.specstory/history/keep.md"])
+
+    def test_named_folder_is_never_skipped(self):
+        write_json(self.root / "a" / "fixtures" / ".mcp.json", {})
+        (self.root / ".leashignore").write_text("**/fixtures\n")
+        self.assertEqual(self.names([self.root]), [])
+        self.assertEqual(self.names([self.root, self.root / "a" / "fixtures"]), ["a/fixtures/.mcp.json"])

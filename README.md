@@ -78,7 +78,7 @@ Useful options:
 
 Exit code: `2` if anything is critical (a secret, a fully open agent, a committed "don't ask again" file on a public repo), `1` if anything is high, `0` otherwise.
 
-To skip a folder, such as a test fixture with fake passwords in it, list it in a `.leashignore` file, one path per line. A folder you name on the command line is always checked, even if it is listed.
+To skip a folder, such as a test fixture with fake passwords in it, list it in a `.leashignore` file, one path or pattern per line. Patterns work as in `.gitignore`: `**/fixtures` skips every folder called fixtures, and `*.example` skips any file or folder ending in .example. A folder you name on the command line is always checked, even if it is listed.
 
 ## How it compares
 
