@@ -6,7 +6,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from . import gitcheck, history, silent
+from . import gitcheck, history, mcpcheck, silent
 from .rules import Grade, Rule, grade, grade_mode, parse
 from .secrets import find_secrets, redact
 from .sources import Source, is_ignored
@@ -163,6 +163,8 @@ def _mcp_findings(src: Source, servers: object = None, project: str | None = Non
             if isinstance(a, str):
                 found.extend(_secret_findings(a, f"the `{name}` MCP server's arguments", src,
                                               "Pass the secret through the environment instead."))
+        for level, title, detail, fix, shown in mcpcheck.server_findings(name, cfg):
+            found.append(Finding(level, "mcp", title, detail, fix, str(src.path), _proj(src), shown))
         for key in ("autoApprove", "alwaysAllow"):
             tools = cfg.get(key)
             if isinstance(tools, list) and cfg.get("disabled") is not True:
