@@ -51,6 +51,9 @@ def _secret_findings(text: str, where: str, src: Source, fix_hint: str) -> list[
     return out
 
 
+_WRITE_NAME = re.compile(r"(?:^|[_\-.])(?:send|post|put|delete|remove|create|write|update|publish|push|execute|exec|"
+                         r"run|deploy|merge|pay|transfer|email|message|invite|share|upload|commit|edit|move|"
+                         r"rename)(?:$|[_\-.]|[A-Z])", re.I)
 _READ_TOOLS = ("Read", "Glob", "Grep", "LS")
 _WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 
@@ -160,6 +163,20 @@ def _mcp_findings(src: Source, servers: object = None, project: str | None = Non
             if isinstance(a, str):
                 found.extend(_secret_findings(a, f"the `{name}` MCP server's arguments", src,
                                               "Pass the secret through the environment instead."))
+        for key in ("autoApprove", "alwaysAllow"):
+            tools = cfg.get(key)
+            if isinstance(tools, list) and cfg.get("disabled") is not True:
+                for tool in tools:
+                    if not isinstance(tool, str):
+                        continue
+                    acts = bool(_WRITE_NAME.search(tool))
+                    found.append(Finding(
+                        "medium" if acts else "low", "mcp",
+                        f"the `{tool}` tool on the `{name}` MCP server runs without asking ({key})",
+                        "Its name says it sends, changes or deletes something, and nobody sees it happen."
+                        if acts else "Its name suggests it only reads. Check what it does if you do not recognise it.",
+                        f"Take `{tool}` out of `{key}` so it asks first." if acts else "Nothing to do.",
+                        str(src.path), _proj(src), f"{name}.{key}: {tool}"))
         if cfg.get("trust") is True:
             found.append(Finding("medium", "mcp", f"every tool on the `{name}` MCP server runs without asking "
                                  "(trust is true)",
@@ -337,7 +354,7 @@ def audit_source(src: Source, use_git: bool = True, use_gh: bool = True) -> list
         findings = _gemini_findings(src)
     elif src.kind == "vscode-mcp":
         findings = _mcp_findings(src, src.data.get("servers"))
-    elif src.kind in ("claude-mcp", "cursor-mcp"):
+    elif src.kind in ("claude-mcp", "cursor-mcp", "claude-desktop", "windsurf-mcp", "cline-mcp", "roo-mcp"):
         findings = _mcp_findings(src)
     else:
         findings = _permission_findings(src) + _mcp_findings(src)

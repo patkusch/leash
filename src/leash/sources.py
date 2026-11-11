@@ -15,7 +15,16 @@ Gemini CLI:
 Cursor:
     ~/.cursor/mcp.json, <project>/.cursor/mcp.json        MCP servers
 VS Code:
-    <project>/.vscode/mcp.json               MCP servers (under "servers")
+    <project>/.vscode/mcp.json, <app support>/Code/User/mcp.json     MCP servers (under "servers")
+Claude Desktop:
+    <app support>/Claude/claude_desktop_config.json                  MCP servers
+Windsurf:
+    ~/.codeium/windsurf/mcp_config.json                               MCP servers
+Cline and Roo Code (VS Code extensions), Cline CLI:
+    <app support>/Code/User/globalStorage/<extension>/settings/*.json MCP servers, autoApprove / alwaysAllow
+    ~/.cline/data/settings/cline_mcp_settings.json
+
+<app support> is ~/Library/Application Support on macOS, %APPDATA% on Windows, ~/.config on Linux.
 
 A `.leashignore` file in any folder lists paths below it to skip, one per line,
 such as `docs/example`. A folder you name on the command line is never skipped.
@@ -64,6 +73,10 @@ class Source:
             "gemini": "Gemini CLI settings",
             "cursor-mcp": "Cursor MCP servers",
             "vscode-mcp": "VS Code MCP servers",
+            "claude-desktop": "Claude Desktop MCP servers",
+            "windsurf-mcp": "Windsurf MCP servers",
+            "cline-mcp": "Cline MCP servers",
+            "roo-mcp": "Roo Code MCP servers",
         }.get(self.kind, self.kind)
 
 
@@ -178,9 +191,19 @@ def managed_settings_paths() -> list[Path]:
     return [Path("/etc/claude-code/managed-settings.json")]
 
 
+def app_support(home: Path) -> Path:
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support"
+    if sys.platform.startswith("win"):
+        return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+    return Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+
+
 def user_sources(home: Path | None = None) -> list[Source]:
     """The machine-wide files: your own settings, the managed file, other agents' user configs."""
     home = home or Path.home()
+    support = app_support(home)
+    ext = support / "Code" / "User" / "globalStorage"
     wanted = [
         (home / ".claude" / "settings.json", "claude-user", "Claude Code", "json"),
         *[(p, "claude-managed", "Claude Code", "json") for p in managed_settings_paths()],
@@ -188,6 +211,13 @@ def user_sources(home: Path | None = None) -> list[Source]:
         (home / ".codex" / "config.toml", "codex", "Codex CLI", "toml"),
         (home / ".gemini" / "settings.json", "gemini", "Gemini CLI", "json"),
         (home / ".cursor" / "mcp.json", "cursor-mcp", "Cursor", "json"),
+        (support / "Code" / "User" / "mcp.json", "vscode-mcp", "VS Code", "json"),
+        (support / "Claude" / "claude_desktop_config.json", "claude-desktop", "Claude Desktop", "json"),
+        (home / ".codeium" / "windsurf" / "mcp_config.json", "windsurf-mcp", "Windsurf", "json"),
+        (ext / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json", "cline-mcp", "Cline", "json"),
+        (home / ".cline" / "data" / "settings" / "cline_mcp_settings.json", "cline-mcp", "Cline", "json"),
+        (ext / "rooveterinaryinc.roo-cline" / "settings" / "mcp_settings.json", "roo-mcp", "Roo Code", "json"),
+        (ext / "rooveterinaryinc.roo-cline" / "settings" / "cline_mcp_settings.json", "roo-mcp", "Roo Code", "json"),
     ]
     return [_source(p, kind, agent, None, False, fmt) for p, kind, agent, fmt in wanted if p.is_file()]
 
