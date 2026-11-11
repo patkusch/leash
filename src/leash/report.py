@@ -137,3 +137,41 @@ def as_sarif(findings: list[Finding], base: Path | None = None) -> str:
             "results": results,
         }],
     }, indent=2)
+
+
+_ICON = {"critical": "🔴 critical", "high": "🟠 high", "medium": "🟡 medium", "low": "⚪ low", "info": "ℹ️ info"}
+
+
+def _cell(text: str) -> str:
+    return (text or "").replace("|", "\\|").replace("\n", " ")
+
+
+def _short_path(path: str, base: Path) -> str:
+    try:
+        return Path(path).resolve().relative_to(base.resolve()).as_posix()
+    except (ValueError, OSError):
+        return path
+
+
+def as_markdown(findings: list[Finding], sources_checked: int, show_low: bool = False, base: Path | None = None) -> str:
+    """A Markdown table, for a GitHub Actions run summary or a pull request comment."""
+    base = base or Path(os.getcwd())
+    findings = sort_findings(findings)
+    counts = Counter(f.level for f in findings)
+    lines = ["## leash", ""]
+    if not findings:
+        lines.append(f"Looked at {sources_checked} file(s). No standing permissions and no secrets found.")
+        return "\n".join(lines) + "\n"
+    summary = ", ".join(f"**{counts[l]} {l}**" for l in ("critical", "high", "medium", "low", "info") if counts[l])
+    lines += [f"Looked at {sources_checked} file(s). Found {summary}.", "",
+              "| Level | What | Where | What to do |", "|---|---|---|---|"]
+    hidden = 0
+    for f in findings:
+        if f.level == "low" and not show_low:
+            hidden += 1
+            continue
+        what = _cell(f.title) + (f"<br><sub>{_cell(f.detail)}</sub>" if f.detail else "")
+        lines.append(f"| {_ICON.get(f.level, f.level)} | {what} | `{_cell(_short_path(f.path, base))}` | {_cell(f.fix)} |")
+    if hidden:
+        lines += ["", f"{hidden} low finding(s) not shown."]
+    return "\n".join(lines) + "\n"

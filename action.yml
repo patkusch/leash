@@ -47,11 +47,5 @@ runs:
         code=$?
         set -e
         cat "$report"
-        {
-          echo "## leash"
-          echo
-          echo '```'
-          cat "$report"
-          echo '```'
-        } >> "$GITHUB_STEP_SUMMARY"
+        PYTHONPATH="$LEASH_SRC" python3 -m leash "$LEASH_PATH" --no-user --no-gh --markdown --fail-on never "${extra[@]}" >> "$GITHUB_STEP_SUMMARY"
         exit $code
