@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, baseline, fix, gitcheck, hook, usage
+from . import __version__, advice, baseline, fix, gitcheck, hook, usage
 from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
 from .report import as_json, as_sarif, text
 from .rules import grade, parse
@@ -61,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="hide findings listed in this baseline file, so only new ones are shown and fail the run")
     ap.add_argument("--write-baseline", metavar="FILE",
                     help="save the current findings as accepted (no secrets are written), then exit")
+    ap.add_argument("--suggest", action="store_true",
+                    help="print the deny rules worth adding, ready to paste into settings.json")
     ap.add_argument("--staged", action="store_true",
                     help="check only the files staged for the next commit (what the pre-commit hook runs)")
     ap.add_argument("--install-hook", action="store_true",
@@ -124,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     findings = []
     for src in result.sources:
         findings.extend(audit_source(src, use_git=not args.no_git, use_gh=not args.no_gh))
+    findings.extend(advice.findings(result.sources))
     if not args.no_git and not args.no_history:
         repos = list(result.repos)
         for r in result.roots:
@@ -154,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         print(as_json(findings, len(result.sources)))
     else:
         print(text(findings, len(result.sources), show_low=args.all), end="")
+        if args.suggest:
+            print("\n" + advice.suggestion(result.sources), end="")
     return exit_code(findings, args.fail_on)
 
 
