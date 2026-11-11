@@ -89,3 +89,18 @@ class HelpTests(unittest.TestCase):
         self.assertIn("leash --suggest", text)
         self.assertIn("leash --install-hook", text)
         self.assertIn("exit codes:", text)
+
+
+class DemoProjectTests(unittest.TestCase):
+    """The same check CI runs on docs/example, so a change that hides the planted passwords fails here too."""
+
+    def test_demo_shows_both_planted_passwords(self):
+        demo = Path(__file__).resolve().parent.parent / "docs" / "example"
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = main([str(demo), "--no-user", "--no-gh", "--no-git", "--json"])
+        data = json.loads(out.getvalue())
+        secrets = [f for f in data["findings"] if f["kind"] == "secret"]
+        self.assertEqual(len(secrets), 2, data["summary"])
+        self.assertEqual(code, 2)
+        self.assertNotIn("Pl4nted-demo-pw", out.getvalue())

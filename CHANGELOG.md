@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 (2026-11-11)
+
+- **Fix: the demo project showed no secrets.** 0.4.1 taught leash to ignore placeholder values that start with "example", and the demo's two planted passwords did. They now use values that do not look like placeholders, and a new test runs the same demo check locally that CI runs, so this cannot pass `make test` and fail on GitHub again. Use 0.4.2 rather than 0.4.1.
+
 ## 0.4.1 (2026-11-11)
 
 - **Tested on real commands.** `bench/real_commands.py` runs the secret finder over the shell commands in your own Claude Code sessions. On the author's 12,999 different commands it flagged 32 (0.25%), nearly all test files with fake passwords on purpose. It showed two placeholder values to ignore (`dummy-...`, `fake_...`) and one missed shape, Stripe webhook secrets (`whsec_...`), now caught. The benchmark is now 34 of 34 caught, 0 of 34 false alarms.

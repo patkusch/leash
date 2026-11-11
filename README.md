@@ -139,7 +139,7 @@ If you use the [pre-commit](https://pre-commit.com) tool, add this to `.pre-comm
 ```yaml
 repos:
   - repo: https://github.com/patkusch/leash
-    rev: v0.4.1
+    rev: v0.4.2
     hooks:
       - id: leash
 ```
@@ -150,7 +150,7 @@ repos:
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0          # full history, so old versions are checked too
-- uses: patkusch/leash@v0.4.1
+- uses: patkusch/leash@v0.4.2
   with:
     path: .
     fail-on: critical       # or high, or never
@@ -169,7 +169,7 @@ steps:
   - uses: actions/checkout@v7
     with:
       fetch-depth: 0
-  - uses: patkusch/leash@v0.4.1
+  - uses: patkusch/leash@v0.4.2
     with:
       fail-on: never
       sarif-file: leash.sarif
@@ -191,8 +191,8 @@ Found: 2 critical, 4 high, 3 medium, 2 low, 1 info.
 
 CRITICAL  fix today
 -------------------
-* a password or key set as an environment variable is written into a 'don't ask again' rule: exam… (21 characters)
-    rule: Bash(PGPASSWORD=[exam… (21 characters)] psql -h db.internal -U app -c "select count(*) from orders":*)
+* a password or key set as an environment variable is written into a 'don't ask again' rule: Pl4n… (17 characters)
+    rule: Bash(PGPASSWORD=[Pl4n… (17 characters)] psql -h db.internal -U app -c "select count(*) from orders":*)
     in:   docs/example/.claude/settings.local.json
     why:  This is in local project settings (where 'don't ask again' writes). Anyone who can read this file has the secret.
     do:   Delete the rule from the allow list and run the command without the password in it next time.
@@ -280,7 +280,7 @@ leash reads settings, not sessions. For what an agent actually did, see [acta](h
 make test
 ```
 
-166 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
+167 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
 
 ## Licence
 
