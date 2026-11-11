@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import __version__, advice, baseline, fix, gitcheck, hook, usage
-from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
+from .audit import ORDER, Finding, audit_history, audit_source, audit_staged, exit_code
 from .report import as_json, as_markdown, as_sarif, text
 from .rules import grade, parse
 from .secrets import find_secrets, redact
@@ -48,6 +48,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="print SARIF for GitHub code scanning (medium and worse findings only)")
     ap.add_argument("--markdown", action="store_true", help="print a Markdown table, for a CI summary or a PR comment")
     ap.add_argument("--all", action="store_true", help="show low findings too")
+    ap.add_argument("--min-level", choices=("critical", "high", "medium", "low", "info"), metavar="LEVEL",
+                    help="only show findings at this level or worse: critical, high, medium, low or info. "
+                         "The exit code still counts every finding")
     ap.add_argument("--fail-on", choices=("medium", "high", "critical", "never"), default="high",
                     help="which findings make leash exit with an error (default: high)")
     ap.add_argument("--no-user", action="store_true", help="skip the settings in your home folder")
@@ -152,14 +155,20 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         findings = baseline.apply(findings, known, Path(args.baseline))
 
+    shown = findings
+    if args.min_level:
+        shown = [f for f in findings if ORDER.get(f.level, 9) <= ORDER[args.min_level]]
     if args.sarif:
-        print(as_sarif(findings))
+        print(as_sarif(shown))
     elif args.json:
-        print(as_json(findings, len(result.sources)))
+        print(as_json(shown, len(result.sources)))
     elif args.markdown:
-        print(as_markdown(findings, len(result.sources), show_low=args.all), end="")
+        print(as_markdown(shown, len(result.sources), show_low=args.all), end="")
     else:
-        print(text(findings, len(result.sources), show_low=args.all), end="")
+        print(text(shown, len(result.sources), show_low=args.all), end="")
+        hidden = len(findings) - len(shown)
+        if hidden:
+            print(f"({hidden} finding(s) below {args.min_level} not shown)")
         if args.suggest:
             print("\n" + advice.suggestion(result.sources), end="")
     return exit_code(findings, args.fail_on)
