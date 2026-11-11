@@ -77,3 +77,15 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HelpTests(unittest.TestCase):
+    def test_help_shows_examples_and_exit_codes(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit) as done:
+            main(["--help"])
+        self.assertEqual(done.exception.code, 0)
+        text = out.getvalue()
+        self.assertIn("leash --suggest", text)
+        self.assertIn("leash --install-hook", text)
+        self.assertIn("exit codes:", text)

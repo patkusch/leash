@@ -14,6 +14,19 @@ from .secrets import find_secrets, redact
 from .sources import scan
 
 
+EXAMPLES = """examples:
+  leash                              check your own settings and every project under this folder
+  leash ~/code --all                 check another folder, and list the harmless rules too
+  leash --usage                      add how often each rule was used in the last 30 days
+  leash --suggest                    print the deny rules worth adding, ready to paste
+  leash --fix                        remove rules that hold a secret (a backup is kept first)
+  leash --install-hook               stop secrets in agent files from being committed in this repo
+  leash --rule 'Bash(git push:*)'    grade one rule without reading any file
+
+exit codes: 0 nothing to fail on, 1 high (or medium with --fail-on medium), 2 critical, 3 could not run
+"""
+
+
 def _grade_rules(rules: list[str]) -> int:
     worst = 0
     for raw in rules:
@@ -38,7 +51,9 @@ def _repo(folder: str) -> Path | None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="leash",
-        description="See what your coding agents may do without asking, and whether a secret slipped into that list.")
+        description="See what your coding agents may do without asking, and whether a secret slipped into that list.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=EXAMPLES)
     ap.add_argument("folders", nargs="*", default=["."],
                     help="folders to search for projects (default: the current folder)")
     ap.add_argument("--rule", action="append", default=[], metavar="RULE",
