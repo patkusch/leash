@@ -45,7 +45,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
 
 _SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", ".tox", ".mypy_cache",
               ".pytest_cache", "Library", ".Trash", "dist", "build", ".next", "target", ".idea"}
-MARKER_DIRS = {".claude", ".cursor", ".vscode", ".gemini"}
+MARKER_DIRS = {".claude", ".cursor", ".vscode", ".gemini", ".specstory"}
+MAX_TRANSCRIPTS = 2000
+MAX_TRANSCRIPT_BYTES = 5_000_000
 MAX_DEPTH = 8
 
 
@@ -77,6 +79,7 @@ class Source:
             "windsurf-mcp": "Windsurf MCP servers",
             "cline-mcp": "Cline MCP servers",
             "roo-mcp": "Roo Code MCP servers",
+            "transcript": "a saved chat transcript (SpecStory)",
         }.get(self.kind, self.kind)
 
 
@@ -240,6 +243,26 @@ def project_sources_in(project: Path, home: Path | None = None) -> list[Source]:
             continue
         if p.is_file():
             out.append(_source(p, kind, agent, project, shared))
+    out.extend(transcripts_in(project))
+    return out
+
+
+def transcripts_in(project: Path) -> list[Source]:
+    """SpecStory's saved chats: <project>/.specstory/history/*.md (and any .md below .specstory)."""
+    folder = project / ".specstory"
+    if not folder.is_dir():
+        return []
+    out: list[Source] = []
+    for p in sorted(folder.rglob("*.md"))[:MAX_TRANSCRIPTS]:
+        if p.name.startswith(".what-is-this") or not p.is_file():
+            continue
+        try:
+            if p.stat().st_size > MAX_TRANSCRIPT_BYTES:
+                continue
+        except OSError:
+            continue
+        text, err = _read(p)
+        out.append(Source(p, "transcript", "SpecStory", project, False, {}, err, text))
     return out
 
 

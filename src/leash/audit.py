@@ -302,7 +302,25 @@ def _gemini_findings(src: Source) -> list[Finding]:
     return out
 
 
+def _transcript_findings(src: Source) -> list[Finding]:
+    seen: set[tuple[str, str]] = set()
+    out: list[Finding] = []
+    for s in find_secrets(src.text):
+        if (s.kind, s.masked) in seen:
+            continue
+        seen.add((s.kind, s.masked))
+        line = src.text.count("\n", 0, s.start) + 1
+        out.append(Finding("critical", "secret", f"{s.kind} is in a saved chat transcript: {s.masked} (line {line})",
+                           "SpecStory saves each agent conversation into the project, including the commands it ran. "
+                           "Anyone who can read this file has the secret.",
+                           "Delete it from the transcript, rotate it, and keep `.specstory/` out of git.",
+                           str(src.path), _proj(src), None))
+    return out
+
+
 def _git_findings(src: Source, has_secret: bool, use_gh: bool) -> list[Finding]:
+    if src.kind == "transcript":
+        return _transcript_git(src, has_secret, use_gh)
     if src.kind not in ("claude-local", "claude-project", "claude-mcp", "gemini", "cursor-mcp", "vscode-mcp"):
         return []
     st = gitcheck.status(src.path, use_gh=use_gh)
@@ -344,11 +362,36 @@ def _git_findings(src: Source, has_secret: bool, use_gh: bool) -> list[Finding]:
     return out
 
 
+def _transcript_git(src: Source, has_secret: bool, use_gh: bool) -> list[Finding]:
+    st = gitcheck.status(src.path, use_gh=use_gh)
+    if st.repo is None:
+        return []
+    proj = _proj(src)
+    folder = str(Path(src.project or src.path.parent) / ".specstory")
+    where = {"public": "a public GitHub repo", "private": "a private repo"}.get(st.visibility or "", "the repo")
+    if st.tracked or st.history_commits:
+        if has_secret:
+            return [Finding("critical", "git", f"a chat transcript with a secret in it is committed to {where}",
+                            "The secret is in the repo's history, not just in the file.",
+                            "Remove the transcript from git, rotate the secret, and add `.specstory/` to .gitignore.",
+                            str(src.path), proj)]
+        return [Finding("medium", "git", f"SpecStory chat transcripts are committed to {where}",
+                        "They hold every command the agent ran. The next one with a password in it goes public too.",
+                        "Add `.specstory/` to .gitignore and `git rm -r --cached .specstory`.", folder, proj)]
+    if not st.ignored:
+        return [Finding("medium", "git", "SpecStory saves chat transcripts here and git does not ignore them",
+                        "Nothing stops the next `git add -A` from committing every conversation, passwords included.",
+                        "Add `.specstory/` to .gitignore.", folder, proj)]
+    return []
+
+
 def audit_source(src: Source, use_git: bool = True, use_gh: bool = True) -> list[Finding]:
     if src.error:
         return [Finding("info", "error", f"could not read {src.label}: {src.error}", "", "", str(src.path),
                         _proj(src))]
-    if src.kind == "codex":
+    if src.kind == "transcript":
+        findings = _transcript_findings(src)
+    elif src.kind == "codex":
         findings = _codex_findings(src)
     elif src.kind == "claude-global":
         findings = _global_findings(src)
@@ -424,7 +467,11 @@ def audit_staged(repo: Path) -> tuple[list[Finding], int]:
                                "inside a rule, goes into the repo's history for good.",
                                f"Run `git restore --staged {rel}` and add it to .gitignore (`leash --gitignore`).",
                                rel, str(repo)))
+        seen: set[tuple[str, str]] = set()
         for s in find_secrets(staged_text(repo, rel)):
+            if (s.kind, s.masked) in seen:
+                continue
+            seen.add((s.kind, s.masked))
             out.append(Finding("critical", "secret", f"{s.kind} is in a file you are about to commit: {s.masked}",
                                "Once it is committed, deleting it later does not take it out of the history.",
                                f"Take the value out of `{rel}`, use an environment variable instead, and rotate it.",
@@ -433,7 +480,15 @@ def audit_staged(repo: Path) -> tuple[list[Finding], int]:
 
 
 def sort_findings(findings: list[Finding]) -> list[Finding]:
-    return sorted(findings, key=lambda f: (ORDER.get(f.level, 9), f.path, f.title))
+    """Worst first, with exact repeats (such as one folder-level note per transcript) kept once."""
+    seen: set[tuple] = set()
+    unique = []
+    for f in findings:
+        key = (f.level, f.kind, f.title, f.path, f.rule)
+        if key not in seen:
+            seen.add(key)
+            unique.append(f)
+    return sorted(unique, key=lambda f: (ORDER.get(f.level, 9), f.path, f.title))
 
 
 def exit_code(findings: list[Finding], fail_on: str = "high") -> int:

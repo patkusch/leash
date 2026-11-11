@@ -25,9 +25,14 @@ def _git(args: list[str], cwd: Path, timeout: int = 30) -> subprocess.CompletedP
         return None
 
 
+def is_transcript(rel: str) -> bool:
+    rel = "/" + rel.replace("\\", "/")
+    return "/.specstory/" in rel and rel.endswith(".md") and not rel.rsplit("/", 1)[-1].startswith(".what-is-this")
+
+
 def is_agent_file(rel: str) -> bool:
     rel = rel.replace("\\", "/")
-    return any(rel == n or rel.endswith("/" + n) for n in AGENT_FILES)
+    return any(rel == n or rel.endswith("/" + n) for n in AGENT_FILES) or is_transcript(rel)
 
 
 def is_local_file(rel: str) -> bool:
@@ -37,7 +42,8 @@ def is_local_file(rel: str) -> bool:
 
 def historical_files(repo: Path) -> list[str]:
     """Every agent permission file that any commit on any branch ever touched (paths relative to repo)."""
-    r = _git(["log", "--all", "--format=", "--name-only", "--", *[f":(glob)**/{n}" for n in AGENT_FILES]], repo)
+    specs = [f":(glob)**/{n}" for n in AGENT_FILES] + [":(glob)**/.specstory/**/*.md"]
+    r = _git(["log", "--all", "--format=", "--name-only", "--", *specs], repo)
     if not r or r.returncode != 0:
         return []
     return sorted({ln.strip() for ln in r.stdout.splitlines() if ln.strip() and is_agent_file(ln.strip())})
