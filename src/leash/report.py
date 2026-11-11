@@ -53,10 +53,17 @@ def text(findings: list[Finding], sources_checked: int, show_low: bool = True, w
     return "\n".join(lines).rstrip() + "\n"
 
 
+# Raised when a field is removed or changes meaning, so scripts can check before they read.
+JSON_FORMAT = 1
+
+
 def as_json(findings: list[Finding], sources_checked: int) -> str:
     findings = sort_findings(findings)
     counts = Counter(f.level for f in findings)
     return json.dumps({
+        "tool": "leash",
+        "version": __version__,
+        "format": JSON_FORMAT,
         "files_checked": sources_checked,
         "summary": {l: counts[l] for l in ("critical", "high", "medium", "low", "info")},
         "findings": [f.to_dict() for f in findings],

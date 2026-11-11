@@ -56,6 +56,9 @@ class CliTests(unittest.TestCase):
         code, out, _ = run(str(self.root), "--no-user", "--no-git", "--json")
         self.assertEqual(code, 2)
         data = json.loads(out)
+        self.assertEqual((data["tool"], data["format"]), ("leash", 1))
+        from leash import __version__
+        self.assertEqual(data["version"], __version__)
         self.assertEqual(data["summary"]["critical"], 1)
         self.assertEqual(data["findings"][0]["rule"], "Bash")
 
