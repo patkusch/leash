@@ -492,12 +492,17 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 
 
 def exit_code(findings: list[Finding], fail_on: str = "high") -> int:
-    """2 when anything is critical, 1 when anything is high (unless fail_on says otherwise), else 0."""
+    """2 when anything is critical; 1 when anything at or above the fail_on level is found; else 0.
+
+    fail_on is "medium", "high" (the default), "critical" or "never".
+    """
     if fail_on == "never":
         return 0
     levels = {f.level for f in findings}
     if "critical" in levels:
         return 2
-    if "high" in levels and fail_on == "high":
+    if "high" in levels and fail_on in ("high", "medium"):
+        return 1
+    if "medium" in levels and fail_on == "medium":
         return 1
     return 0

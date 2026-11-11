@@ -10,7 +10,7 @@ inputs:
     description: Folder to check, relative to the repo.
     default: "."
   fail-on:
-    description: "Which findings fail the step: critical, high or never."
+    description: "Which findings fail the step: medium, high, critical or never."
     default: critical
   sarif-file:
     description: "Also write SARIF to this path, for github/codeql-action/upload-sarif. Empty means no SARIF."

@@ -123,6 +123,12 @@ class FailOnTests(unittest.TestCase):
         self.assertEqual(exit_code([self.f("critical")], "never"), 0)
         self.assertEqual(exit_code([self.f("medium")]), 0)
 
+    def test_fail_on_medium(self):
+        self.assertEqual(exit_code([self.f("medium")], "medium"), 1)
+        self.assertEqual(exit_code([self.f("high")], "medium"), 1)
+        self.assertEqual(exit_code([self.f("critical")], "medium"), 2)
+        self.assertEqual(exit_code([self.f("low"), self.f("info")], "medium"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

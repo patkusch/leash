@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="print SARIF for GitHub code scanning (medium and worse findings only)")
     ap.add_argument("--markdown", action="store_true", help="print a Markdown table, for a CI summary or a PR comment")
     ap.add_argument("--all", action="store_true", help="show low findings too")
-    ap.add_argument("--fail-on", choices=("high", "critical", "never"), default="high",
+    ap.add_argument("--fail-on", choices=("medium", "high", "critical", "never"), default="high",
                     help="which findings make leash exit with an error (default: high)")
     ap.add_argument("--no-user", action="store_true", help="skip the settings in your home folder")
     ap.add_argument("--no-git", action="store_true", help="do not ask git anything (also skips history)")
