@@ -1,7 +1,7 @@
 """Planted leaks and harmless lookalikes, written as the 'don't ask again' rules they would become.
 
 Fake values are built when the benchmark runs, so the repo never holds a string shaped like a real
-token. {pw} is a made-up password; {gh}, {ant}, {aws}, {slack}, {stripe}, {npm}, {hf}, {gl} and {jwt}
+token. {pw} is a made-up password; {gh}, {ant}, {aws}, {slack}, {stripe}, {whsec}, {npm}, {hf}, {gl} and {jwt}
 become fake provider tokens of the right shape.
 """
 
@@ -40,6 +40,7 @@ PLANTED = [
     ("provider token", "aws configure set aws_access_key_id {aws}"),
     ("provider token", "curl -X POST -H 'Authorization: Bearer {slack}' https://slack.com/api/chat.postMessage"),
     ("provider token", "stripe charges list --api-key {stripe}"),
+    ("provider token", "stripe listen --forward-to localhost:3000 --skip-verify # secret {whsec}"),
     ("provider token", "npm config set //registry.npmjs.org/:_authToken {npm}"),
     ("provider token", "huggingface-cli login --token {hf}"),
     ("provider token", "glab auth login --token {gl}"),
@@ -80,4 +81,6 @@ BENIGN = [
     "ls -la ~/.ssh",
     "python -m pytest tests/test_auth.py",
     "make deploy ENV=staging",
+    "ANTHROPIC_API_KEY=dummy-key-for-tests python3 eval/run.py",
+    "API_TOKEN=fake_token_123 pytest tests/",
 ]

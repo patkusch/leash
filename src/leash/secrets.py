@@ -14,7 +14,8 @@ import re
 from dataclasses import dataclass
 
 # Values that are clearly placeholders, not real secrets.
-_PLACEHOLDER = re.compile(r"^(?:<[^>]*>|\.{3,}|\*{3,}|x{3,}|changeme|example|placeholder|redacted|your[-_][a-z_-]+)$", re.I)
+_PLACEHOLDER = re.compile(r"^(?:<[^>]*>|\.{3,}|\*{3,}|x{3,}|changeme|example|placeholder|redacted|your[-_][a-z_-]+|"
+                          r"(?:dummy|fake|sample|example|placeholder|not[-_]?a[-_]?real)[-_a-z0-9]*)$", re.I)
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ _TOKEN_SHAPES = [
     ("an npm token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
     ("a Hugging Face token", re.compile(r"\bhf_[A-Za-z0-9]{30,}\b")),
     ("a Stripe key", re.compile(r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{20,}\b")),
+    ("a Stripe webhook signing secret", re.compile(r"\bwhsec_[A-Za-z0-9]{24,}\b")),
     ("a private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
     ("a signed web token (JWT)", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
 ]

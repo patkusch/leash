@@ -35,6 +35,7 @@ def fakes() -> dict[str, str]:
         "aws": "AKIA" + "".join(rng.choice(up) for _ in range(16)),
         "slack": "xoxb-" + chars(12, string.digits) + "-" + chars(24),
         "stripe": "sk_" + "test_" + chars(24),
+        "whsec": "wh" + "sec_" + chars(32),
         "npm": "npm_" + chars(36),
         "hf": "hf_" + chars(34),
         "gl": "glpat-" + chars(20),
@@ -87,6 +88,11 @@ if __name__ == "__main__":
             "(`redis-cli -a`, `sqlcmd -P`, `docker login -p`, `openssl -passin pass:`); the finder was then taught them.\n"
             "- The cases and the finder were written by the same person, so this shows the finder does what it "
             "claims. It is not a measure of how it does on leaks nobody has seen yet.\n"
+            "- On real commands: run over the author's own Claude Code sessions (12,999 different shell commands "
+            "in 90 days, by `python bench/real_commands.py`), the finder flagged 32 (0.25%). Nearly all were test "
+            "files written with fake passwords on purpose, which is correct. Two were placeholder values "
+            "(`dummy-...`), now ignored. One was a real-shaped Stripe webhook secret (`whsec_...`) that the finder "
+            "had missed, now caught.\n"
             "- The first three kinds are the shapes that, per one write-up of the Apiiro set, got past both "
             "gitleaks and TruffleHog (215 secrets). leash was not run on that set, which is not public.\n",
             encoding="utf-8")
