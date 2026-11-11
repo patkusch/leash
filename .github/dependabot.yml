@@ -1,10 +1,9 @@
+# Proposes updates to the pinned GitHub Actions once a week, so pinning never means falling behind.
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
-    groups:
-      all-updates:
-        patterns: ["*"]
+    commit-message:
+      prefix: ci
