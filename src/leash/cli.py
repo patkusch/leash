@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, fix, gitcheck, hook, usage
+from . import __version__, baseline, fix, gitcheck, hook, usage
 from .audit import Finding, audit_history, audit_source, audit_staged, exit_code
 from .report import as_json, as_sarif, text
 from .rules import grade, parse
@@ -57,6 +57,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="add .claude/settings.local.json to .gitignore in every repo where it is missing")
     ap.add_argument("--fix", action="store_true",
                     help="remove rules that have a secret in them (a backup goes to ~/.leash/backups first)")
+    ap.add_argument("--baseline", metavar="FILE",
+                    help="hide findings listed in this baseline file, so only new ones are shown and fail the run")
+    ap.add_argument("--write-baseline", metavar="FILE",
+                    help="save the current findings as accepted (no secrets are written), then exit")
     ap.add_argument("--staged", action="store_true",
                     help="check only the files staged for the next commit (what the pre-commit hook runs)")
     ap.add_argument("--install-hook", action="store_true",
@@ -131,6 +135,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.usage:
         add_usage(findings, args.usage, Path(args.logs).expanduser() if args.logs else usage.default_log_dir())
+
+    if args.write_baseline:
+        n = baseline.write(findings, Path(args.write_baseline))
+        print(f"wrote {n} finding(s) to {args.write_baseline}. Review it, then use --baseline {args.write_baseline}")
+        return 0
+    if args.baseline:
+        try:
+            known = baseline.load(Path(args.baseline))
+        except (OSError, ValueError, KeyError) as e:
+            print(f"leash: could not read the baseline {args.baseline}: {e}", file=sys.stderr)
+            return 3
+        findings = baseline.apply(findings, known, Path(args.baseline))
 
     if args.sarif:
         print(as_sarif(findings))
