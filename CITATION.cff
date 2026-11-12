@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "leash"
+abstract: "See what your coding agents may do without asking, and whether a secret slipped into that list."
+type: software
+authors:
+  - family-names: "Kusch"
+    given-names: "Patricia"
+repository-code: "https://github.com/patkusch/leash"
+license: MIT
