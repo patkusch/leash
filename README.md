@@ -280,7 +280,7 @@ leash reads settings, not sessions. For what an agent actually did, see [acta](h
 make test
 ```
 
-167 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
+180 tests, no network, no home-folder files, including the benchmark: a planted leak that is missed, or a lookalike that is flagged, fails the build. Each one builds its own throw-away project or git repo.
 
 ## Licence
 
