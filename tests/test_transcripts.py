@@ -77,7 +77,7 @@ class TranscriptTests(unittest.TestCase):
 
     def test_deleted_transcript_secret_is_found_in_history(self):
         repo = make_repo(self.root / "r", remote="https://example.com/x.git")
-        p = self.write(repo)
+        self.write(repo)
         commit_all(repo)
         git(repo, "rm", "-q", "-r", ".specstory")
         commit_all(repo, "remove chats")

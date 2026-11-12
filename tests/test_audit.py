@@ -4,7 +4,7 @@ from pathlib import Path
 
 from helpers import commit_all, git, make_repo, write_json
 from leash.audit import audit_source, exit_code
-from leash.sources import Source, discover, user_sources
+from leash.sources import Source, discover
 
 
 def by_kind(findings, kind):
