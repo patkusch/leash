@@ -26,5 +26,6 @@ where = ["src"]
 
 [project.urls]
 Homepage = "https://github.com/patkusch/leash"
+Repository = "https://github.com/patkusch/leash"
 Issues = "https://github.com/patkusch/leash/issues"
 Changelog = "https://github.com/patkusch/leash/blob/main/CHANGELOG.md"
