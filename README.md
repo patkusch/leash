@@ -274,6 +274,10 @@ leash does not connect to MCP servers, so it cannot see a poisoned tool descript
 
 leash reads settings, not sessions. For what an agent actually did, see [acta](https://github.com/patkusch/acta). For a yes-or-no gate at the moment of each call, see [airlock](https://github.com/PKusch/airlock). For what a skill can touch before you install it, see [skillgate](https://github.com/patkusch/skillgate).
 
+## Used together
+
+[agentcheck](https://github.com/patkusch/agentcheck) runs leash with [skillgate](https://github.com/patkusch/skillgate) (agent skills) and [mandata](https://github.com/patkusch/mandata) (instruction files) on one repo and prints a single page: what to fix first, what to check, and what the page cannot tell you.
+
 ## Tests
 
 ```bash
